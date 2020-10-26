@@ -10,9 +10,12 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.com.rafael.dsbootcampchallenger.dto.ClientDTO;
 import br.com.rafael.dsbootcampchallenger.entities.Client;
 import br.com.rafael.dsbootcampchallenger.exception.DataBaseException;
 import br.com.rafael.dsbootcampchallenger.exception.ResourceNotFoundException;
@@ -25,42 +28,40 @@ public class ClientService {
 	private ClientRepository clienteRepository;
 	
 	@Transactional(readOnly = true)
-	public List<Client> findAll(){
+	public Page <ClientDTO> findAllPaged(PageRequest pageRequest){
+		Page <Client> list = clienteRepository.findAll(pageRequest);
 		
-		return clienteRepository.findAll();
+		return list.map(x->new ClientDTO(x));
 		
 	}
 
 	@Transactional(readOnly = true)
-	public Client findById(Long id) {
+	public ClientDTO findById(Long id) {
 		Optional<Client> obj = clienteRepository.findById(id);
 		Client entity = obj.orElseThrow(()-> new ResourceNotFoundException("Entity Not Found"));
-		return entity;
+		return new ClientDTO(entity);
 	}
 
 	@Transactional
-	public Client insert(Client client) {
-		Client entiClient = new Client();
-		entiClient.setName(client.getName());
-		entiClient.setCpf(client.getCpf());
-		entiClient.setIncome(client.getIncome());
-		entiClient.setChildren(client.getChildren());
-		entiClient.setBirthDate(client.getBirthDate());
-		clienteRepository.save(entiClient);
-		return entiClient;
+	public ClientDTO insert(ClientDTO client) {
+		try {
+			Client entiClient = new Client();
+			copyDtoToEntity(client, entiClient);
+			entiClient = clienteRepository.save(entiClient);
+			return new ClientDTO(entiClient);
+		} catch (Exception e) {
+			throw new DataBaseException("Erro ao salvar objeto no H2"+ e);
+		}
+		
 	}
 
 	@Transactional
-	public Client update(Long id, Client client) {
+	public ClientDTO update(Long id, ClientDTO clientDTO) {
 		try {
 			Client entity=  clienteRepository.getOne(id);
-			entity.setName(client.getName());
-			entity.setCpf(client.getName());
-			entity.setBirthDate(client.getBirthDate());
-			entity.setChildren(client.getChildren());
-			entity.setIncome(client.getIncome());
+			copyDtoToEntity(clientDTO, entity);
 			entity = clienteRepository.save(entity);
-			return entity;
+			return new ClientDTO(entity);
 		} catch (Exception e) {
 			throw new ResourceNotFoundException("Id Not Found" + e);
 		}
@@ -76,6 +77,15 @@ public class ClientService {
 		}catch (DataIntegrityViolationException e) {
 			throw new DataBaseException("Integrity Violition" + e);
 		}
+	}
+	
+	private void copyDtoToEntity(ClientDTO clientDTO , Client clientEntity) {
+		clientEntity.setName(clientDTO.getName());
+		clientEntity.setCpf(clientDTO.getCpf());
+		clientEntity.setBirthDate(clientDTO.getBirthDate());
+		clientEntity.setIncome(clientDTO.getIncome());
+		clientEntity.setChildren(clientDTO.getChildren());
+		
 	}
 
 	
